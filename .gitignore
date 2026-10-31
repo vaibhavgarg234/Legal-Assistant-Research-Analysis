@@ -1,0 +1,66 @@
+# --- Python backend ---
+
+# Virtual Environment folder
+# This is crucial to prevent committing large library files
+venv/
+/venv/
+.venv/
+/.venv/
+__pycache__/
+*.pyc
+
+# Local settings and secrets file
+# IMPORTANT: Never commit your API keys or secrets!
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Local database files (if any)
+*.sqlite3
+*.db
+
+
+# --- React frontend / Node.js ---
+
+# Node modules folder
+node_modules/
+**/node_modules/
+
+# Build output
+frontend/dist/
+frontend/build/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local environment variables for frontend
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+
+# --- General ---
+
+# IDE/Editor specific files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.bak
+*.swo
+*.swn
