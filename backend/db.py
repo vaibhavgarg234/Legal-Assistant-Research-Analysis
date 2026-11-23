@@ -38,22 +38,46 @@ def init_db():
     conn.close()
 
 def save_thread(user_id: str, thread_id: str, title: str = None):
-    """Save or update a thread."""
+    """Save or update a thread, preserving meaningful title if not specified."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    cursor.execute('''
-        INSERT OR REPLACE INTO threads (thread_id, user_id, title, updated_at)
-        VALUES (?, ?, ?, ?)
-    ''', (thread_id, user_id, title or f"Chat {datetime.now().strftime('%Y-%m-%d %H:%M')}", datetime.now()))
+    cursor.execute('SELECT title FROM threads WHERE thread_id = ?', (thread_id,))
+    row = cursor.fetchone()
+    if row:
+        existing_title = row[0]
+        # Keep existing title if new title is not explicitly provided or is default
+        new_title = title if (title and not title.startswith("Chat 20")) else existing_title
+        cursor.execute('''
+            UPDATE threads SET user_id = ?, title = ?, updated_at = ?
+            WHERE thread_id = ?
+        ''', (user_id or "default_user", new_title, datetime.now(), thread_id))
+    else:
+        cursor.execute('''
+            INSERT INTO threads (thread_id, user_id, title, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (thread_id, user_id or "default_user", title or f"Chat {datetime.now().strftime('%Y-%m-%d %H:%M')}", datetime.now(), datetime.now()))
 
     conn.commit()
     conn.close()
 
 def save_message(thread_id: str, role: str, content: str):
-    """Save a message to the database."""
+    """Save a message to the database and ensure thread exists."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+
+    # Ensure thread exists in threads table
+    cursor.execute('SELECT 1 FROM threads WHERE thread_id = ?', (thread_id,))
+    if not cursor.fetchone():
+        title = content[:50].strip() + ("..." if len(content) > 50 else "") if role == "user" else f"Chat {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        cursor.execute('''
+            INSERT INTO threads (thread_id, user_id, title, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (thread_id, "default_user", title, datetime.now(), datetime.now()))
+    else:
+        cursor.execute('''
+            UPDATE threads SET updated_at = ? WHERE thread_id = ?
+        ''', (datetime.now(), thread_id))
 
     cursor.execute('''
         INSERT INTO messages (thread_id, role, content)
@@ -63,17 +87,24 @@ def save_message(thread_id: str, role: str, content: str):
     conn.commit()
     conn.close()
 
-def get_user_threads(user_id: str) -> List[Dict[str, Any]]:
-    """Get all threads for a user."""
+def get_user_threads(user_id: str = None) -> List[Dict[str, Any]]:
+    """Get all threads for a user, or all threads if default/none."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    cursor.execute('''
-        SELECT thread_id, title, created_at, updated_at
-        FROM threads
-        WHERE user_id = ?
-        ORDER BY updated_at DESC
-    ''', (user_id,))
+    if user_id and user_id not in ("default_user", "anonymous", ""):
+        cursor.execute('''
+            SELECT thread_id, title, created_at, updated_at
+            FROM threads
+            WHERE user_id = ? OR user_id = 'default_user'
+            ORDER BY updated_at DESC
+        ''', (user_id,))
+    else:
+        cursor.execute('''
+            SELECT thread_id, title, created_at, updated_at
+            FROM threads
+            ORDER BY updated_at DESC
+        ''')
 
     threads = []
     for row in cursor.fetchall():

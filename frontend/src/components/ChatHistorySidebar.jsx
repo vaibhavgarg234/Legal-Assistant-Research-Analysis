@@ -9,18 +9,17 @@ function ChatHistorySidebar({ isOpen, onClose, onThreadSelect, currentThreadId, 
   const { user } = useUser();
 
   useEffect(() => {
-    if (isOpen && user) {
+    if (isOpen) {
       fetchChatHistory();
     }
   }, [isOpen, user, currentThreadFilter]);
 
   const fetchChatHistory = async () => {
-    if (!user) return;
     try {
       const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/get_chat_history`, {
-        user_id: user.id
+        user_id: user?.id || 'default_user'
       });
-      setThreads(response.data.threads);
+      setThreads(response.data.threads || []);
     } catch (error) {
       console.error('Error fetching chat history:', error);
     }

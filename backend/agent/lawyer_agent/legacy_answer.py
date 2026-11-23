@@ -58,8 +58,8 @@ def summarize_long_text(text: str, label: str, query: str) -> str:
     return safe_invoke(llm, prompt, {"query": query, "text": trimmed, "label": label})
 
 
-def generate_legacy_lawyer_answer(query: str, all_steps: str) -> str:
-    """Generates a structured legal analysis report for a lawyer (legacy logic)."""
+def generate_legacy_lawyer_answer(query: str, all_steps: str, chat_history: str = "") -> str:
+    """Generates a structured legal analysis report for a lawyer with conversational awareness."""
     print("---GENERATING LEGACY LAWYER ANALYSIS REPORT---")
 
     # Compress steps if too long
@@ -68,24 +68,28 @@ def generate_legacy_lawyer_answer(query: str, all_steps: str) -> str:
 
     llm = get_llm()
     analysis_prompt = PromptTemplate(
-        template="""You are an expert legal assistant. Based on the lawyer's case details
-        and the research steps below, generate a professional legal analysis.
+        template="""You are an expert legal assistant. Based on the lawyer's case details, prior conversation history, and research steps below, generate a professional legal analysis.
 
-        - **Original Case Details**: A summary of the query provided by the lawyer.
-        - **Relevant Statutes & Acts**: List of key legal provisions from Indian Law.
-        - **Past Case Precedents & Judgments**: A detailed summary of related case studies with names and citations.
-        - **Key Legal Arguments & Points**: Actionable points and arguments derived from the research.
-        - **Sources**: A clear list of all web pages and internal documents used.
+Conversation History:
+{chat_history}
 
-        Case Details: {query}
-        Research Steps: {all_steps}
+Case Details: {query}
 
-        Final Legal Analysis:""",
-        input_variables=["query", "all_steps"],
+Research Steps:
+{all_steps}
+
+- **Original Case Details**: A summary of the query provided by the lawyer (connecting to prior history if this is a follow-up).
+- **Relevant Statutes & Acts**: List of key legal provisions from Indian Law.
+- **Past Case Precedents & Judgments**: A detailed summary of related case studies with names and citations.
+- **Key Legal Arguments & Points**: Actionable points and arguments derived from the research.
+- **Sources**: A clear list of all web pages and internal documents used.
+
+Final Legal Analysis:""",
+        input_variables=["query", "all_steps", "chat_history"],
     )
 
     final_analysis = safe_invoke(
-        llm, analysis_prompt, {"query": query, "all_steps": all_steps}
+        llm, analysis_prompt, {"query": query, "all_steps": all_steps, "chat_history": chat_history or "No prior conversation history."}
     )
 
     return final_analysis

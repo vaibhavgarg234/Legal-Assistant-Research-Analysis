@@ -25,10 +25,10 @@ def route_query(role: str, user_query: str, thread_id: str):
     for msg in existing_messages:
         if msg['role'] == 'user':
             chat_history.append({"role": "user", "content": msg['content']})
-        elif msg['role'] == 'bot':
+        elif msg['role'] in ('bot', 'assistant'):
             chat_history.append({"role": "assistant", "content": msg['content']})
 
-    # Create the initial state with the query and role
+    # Create the initial state with the query, history, and role
     input_state = {
         "query": user_query,
         "chat_history": chat_history,
@@ -40,12 +40,12 @@ def route_query(role: str, user_query: str, thread_id: str):
     normalized_role = (role or '').strip().lower()
 
     if normalized_role == "lawyer":
-        print("Routing to Lawyer Agent...")
+        print(f"Routing to Lawyer Agent (with {len(chat_history)} prior messages in history)...")
         result = lawyer_app.invoke(
             input_state, config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
         )
     elif normalized_role == "citizen":
-        print("Routing to Citizen Agent...")
+        print(f"Routing to Citizen Agent (with {len(chat_history)} prior messages in history)...")
         result = citizen_app.invoke(
             input_state, config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
         )
@@ -56,14 +56,10 @@ def route_query(role: str, user_query: str, thread_id: str):
             input_state, config={"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
         )
 
-    # Save messages to database after processing
-    from db import save_message
-    for message in result.get('chat_history', []):
-      save_message(
-        thread_id,
-        message.get("role") or message.get("type", "assistant"),  # fallback
-        message.get("content", "")
-    )
-
+    # Save the current conversational turn to the database
+    final_analysis = result.get("final_analysis", "")
+    if final_analysis:
+        save_message(thread_id, "user", user_query)
+        save_message(thread_id, "bot", final_analysis)
 
     return result

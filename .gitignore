@@ -64,3 +64,8 @@ Desktop.ini
 *.bak
 *.swo
 *.swn
+
+# Browser subagent profiles and visual generator scratch
+.chrome_*
+.backend_visuals_html/
+.flowcharts_html/

@@ -10,6 +10,7 @@ from langchain_core.messages import BaseMessage  # noqa: F401
 
 from sentence_transformers import SentenceTransformer, util
 from legal_rag.source_verifier import run_source_verification
+from legal_rag.query_rewriter import format_chat_history
 
 load_dotenv()
 
@@ -197,10 +198,12 @@ def summarize_and_reflect(state: AgentState) -> dict:
 
 
 def generate_final_analysis(state: AgentState) -> dict:
-    """Generates the final, structured legal analysis."""
+    """Generates the final, structured legal analysis with conversational continuity."""
     print("---GENERATING FINAL ANALYSIS---")
     query = state["query"]
     all_steps = "\n".join(state["intermediate_steps"])
+    chat_history = state.get("chat_history", [])
+    history_str = format_chat_history(chat_history)
 
     # Compress steps if too long
     if len(all_steps.split()) > 1500:
@@ -209,9 +212,18 @@ def generate_final_analysis(state: AgentState) -> dict:
     llm = get_llm()
     analysis_prompt = PromptTemplate(
         template="""You are L.A.R.A., an expert Indian legal analyst.
-Based on the user query and the retrieved research steps below, generate an authoritative, structured legal analysis.
+Based on the prior conversation history, user query, and the retrieved research steps below, generate an authoritative, structured legal analysis.
 
-CRITICAL INSTRUCTIONS FOR ACCURACY:
+Conversation History (Prior Turns):
+{chat_history}
+
+Current Query: {query}
+
+Research Steps:
+{all_steps}
+
+CRITICAL INSTRUCTIONS FOR ACCURACY & CONVERSATIONAL CONTINUITY:
+- If the current query is a follow-up or relates to the prior conversation, ensure seamless continuity by acknowledging the context already established while directly answering the new question.
 - Ground all facts strictly in the provided Research Steps and live sources.
 - Never invent fictitious court judgments, imaginary case names, fake dates, or nonexistent benches.
 - Never cite repealed laws (such as POTA 2002) as active law. Applicable Indian statutes for public order and detention include BNSS / CrPC (e.g. Sections 107/151 for preventive custody), BNS / IPC, and the Delhi Police Act.
@@ -219,22 +231,18 @@ CRITICAL INSTRUCTIONS FOR ACCURACY:
 
 Required Structure:
 - **Original Query**
-- **Factual Background & Latest Status** (Detail the verified facts from live reports)
-- **Applicable Legal Framework** (Statutory provisions, fundamental rights under Article 19(1)(b) vs reasonable restrictions under 19(3), flag protocols under Flag Code / Prevention of Insults to National Honour Act)
-- **Judicial Context & Relevant Precedents** (Discuss established precedents such as Union of India v. Naveen Jindal (2004) or Mazdoor Kisan Shakti Sangathan v. Union of India (2018), and note the current court/magistrate status of the specific matter)
-- **Analysis and Key Takeaways**
+- **Context & Factual Background** (Explicitly connecting to prior turns if this is a follow-up)
+- **Applicable Legal Framework** (Statutory provisions, fundamental rights, sections, and procedures)
+- **Judicial Context & Relevant Precedents** (Discuss established precedents and current status)
+- **Analysis, Practical Remedies & Key Takeaways**
 - **Sources & Citations** (List retrieved URLs and relevant statutes)
 
-Query: {query}
-Research Steps:
-{all_steps}
-
 Final Analysis:""",
-        input_variables=["query", "all_steps"],
+        input_variables=["query", "all_steps", "chat_history"],
     )
 
     final_analysis = safe_invoke(
-        llm, analysis_prompt, {"query": query, "all_steps": all_steps}
+        llm, analysis_prompt, {"query": query, "all_steps": all_steps, "chat_history": history_str}
     )
 
     return {"final_analysis": final_analysis}

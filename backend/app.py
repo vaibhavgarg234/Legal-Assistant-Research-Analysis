@@ -64,6 +64,7 @@ class QueryRequest(BaseModel):
     user_query: str
     role: str
     thread_id: str
+    user_id: str | None = "default_user"
 
 
 class QueryResponse(BaseModel):
@@ -72,7 +73,7 @@ class QueryResponse(BaseModel):
 
 
 class ChatHistoryRequest(BaseModel):
-    user_id: str
+    user_id: str | None = "default_user"
 
 
 class ThreadMessagesRequest(BaseModel):
@@ -100,6 +101,13 @@ async def process_legal_query(request: QueryRequest):
     Main endpoint called by frontend
     """
     try:
+        user_id = request.user_id or "default_user"
+        save_thread(
+            user_id=user_id,
+            thread_id=request.thread_id,
+            title=request.user_query[:50] + ("..." if len(request.user_query) > 50 else "")
+        )
+
         result = route_query(
             role=request.role,
             user_query=request.user_query,
@@ -110,10 +118,6 @@ async def process_legal_query(request: QueryRequest):
             "final_analysis",
             "Sorry, no analysis could be generated.",
         )
-
-        # Save chat
-        save_message(request.thread_id, "user", request.user_query)
-        save_message(request.thread_id, "bot", final_analysis)
 
         return QueryResponse(
             final_analysis=final_analysis,

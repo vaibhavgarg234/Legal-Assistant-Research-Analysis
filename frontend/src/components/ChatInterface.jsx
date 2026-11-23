@@ -61,6 +61,7 @@ function ChatInterface() {
         user_query: currentQuery,
         role: userRole,
         thread_id: threadId,
+        user_id: user?.id || 'default_user',
       });
 
       const botMessage = {
@@ -72,10 +73,10 @@ function ChatInterface() {
       setMessages(prev => [...prev, botMessage]);
 
       // Save thread to database only when the user sends the first real message
-      if (isFirstRealMessage && user) {
+      if (isFirstRealMessage) {
         try {
           await axios.post(`${import.meta.env.VITE_API_BASE_URL}/save_thread`, {
-            user_id: user.id,
+            user_id: user?.id || 'default_user',
             thread_id: threadId,
             title: currentQuery.length > 50 ? currentQuery.substring(0, 50) + '...' : currentQuery
           });
